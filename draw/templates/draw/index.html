@@ -1,5 +1,5 @@
+<!-- http(s)://p3-websockets-steve-cao-stevecao32758.codeanyapp.com -->
 {% load static %}
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -11,26 +11,88 @@
     <script type="text/javascript" src="{% static 'draw/vendor/paper/paper-full.min.js' %}"></script>
 
     <style type="text/css">
+      #myCanvas {
+        border: 5px solid black;
+      }
     </style>
-
 </head>
+  
 <body>
-    <!-- You may change the dimensions of this canvas -->
-    <canvas id="myCanvas" width="750px" height="750px"></canvas>
+    <canvas id="myCanvas" width="850px" height="850px"></canvas> <!-- You may change the dimensions of this canvas -->
 </body>
+  
 <script>
-
-    // setting up the canvas and one paper tool
-    var canvas = document.getElementById('myCanvas');
+    var canvas = document.getElementById('myCanvas');  // setting up the canvas and one paper tool
     paper.setup(canvas);
     var tool = new paper.Tool();
 
-    // getting the URL (you may want to use for Exercise 3)
-    var url = window.location.href;
+    var url = window.location.href; // getting the URL (you may want to use for Exercise 3)
 
-    // var socket = new WebSocket(
-    //     'wss://<your url here>/ws/draw');
-
-
-</script>
+    var socket = new WebSocket('wss://p3-websockets-steve-cao-stevecao32758.codeanyapp.com/ws/draw');
+  
+    function randomID() {
+      return Math.random();
+    }
+    var id = randomID();
+  
+    function getRandomColor() {
+      var red = Math.floor(Math.random() * (256 - 1 + 1)) + 1;
+      var green = Math.floor(Math.random() * (256 - 1 + 1)) + 1;
+      var blue = Math.floor(Math.random() * (256 - 1 + 1)) + 1;
+      return 'rgb(' + red + "," + green + "," + blue + ')';
+    }
+    var color = getRandomColor();
+  
+    var pathlibrary = {
+      id: path //not number lol
+    }
+    
+    var path = new paper.Path();
+    path.strokeColor = color;
+    path.strokeWidth = '3';
+  
+    socket.onmessage = function (receivedMessage) { //prints message when received
+      var data = receivedMessage.data;
+      var jsonobject = JSON.parse(data);
+      if (jsonobject.id in pathlibrary) {
+        pathlibrary[jsonobject.id].add(new paper.Point(jsonobject.x, jsonobject.y));
+      } else {
+        pathlibrary[jsonobject.id] = new paper.Path();
+        pathlibrary[jsonobject.id].strokeColor = jsonobject.color;
+        console.log(jsonobject.id, jsonobject.color);
+        pathlibrary[jsonobject.id].strokeWidth = '3';
+        pathlibrary[jsonobject.id].add(new paper.Point(jsonobject.x, jsonobject.y));
+      }
+    }
+  
+    tool.onMouseMove = function(event) {
+      var details = {x: event.point.x, y: event.point.y, color: color, id: id };
+      var jsonstring = JSON.stringify(details);
+      socket.send(jsonstring);
+      path.add(event.point);
+      console.log(path.strokeColor.toString());
+    }
+    
+    if (url.indexOf("small") > -1) {  // if small screen
+      socket.onmessage = function(receivedMessage) {
+        return;
+      };
+      window.addEventListener('deviceorientation', (event) => {
+        var turn = event.gamma;
+        console.log(turn);
+        if (turn > 35) {
+          var random_color = getRandomColor();
+          path.strokeColor = random_color;
+        };
+      });
+      window.addEventListener('devicemotion', (event) => {
+        var x_acceleration = event.acceleration.x;
+        var y_acceleration = event.acceleration.y;
+        var z_acceleration = event.acceleration.z;
+        if (Math.abs(x_acceleration > 10) || Math.abs(y_acceleration) > 10 || Math.abs(z_acceleration) > 10) {
+          paper.project.clear();
+        };
+      });
+    };
+</script>  
 </html>
